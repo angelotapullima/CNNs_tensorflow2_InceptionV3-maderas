@@ -30,6 +30,13 @@ if __name__ == '__main__':
     train_dataset, valid_dataset, test_dataset, train_count, valid_count, test_count = generate_datasets()
 
 
+
+    current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+    test_log_dir = 'logs/gradient_tape/' + current_time + '/test'
+    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+    test_summary_writer = tf.summary.create_file_writer(test_log_dir)
+
     # create model
     model = get_model()
 
@@ -73,6 +80,10 @@ if __name__ == '__main__':
         for images, labels in train_dataset:
             step += 1
             train_step(images, labels)
+        with train_summary_writer.as_default():
+            tf.summary.scalar('loss', train_loss.result(), step=epoch)
+            tf.summary.scalar('accuracy', train_accuracy.result(), step=epoch)
+
             print("Epoch: {}/{}, step: {}/{}, loss: {:.5f}, accuracy: {:.5f}".format(epoch + 1,
                                                                                      config.EPOCHS,
                                                                                      step,
@@ -82,6 +93,9 @@ if __name__ == '__main__':
 
         for valid_images, valid_labels in valid_dataset:
             valid_step(valid_images, valid_labels)
+        with test_summary_writer.as_default():
+            tf.summary.scalar('loss', valid_loss.result(), step=epoch)
+            tf.summary.scalar('accuracy', valid_accuracy.result(), step=epoch)
 
         print("Epoch: {}/{}, train loss: {:.5f}, train accuracy: {:.5f}, "
               "valid loss: {:.5f}, valid accuracy: {:.5f}".format(epoch + 1,
@@ -92,40 +106,3 @@ if __name__ == '__main__':
                                                                   valid_accuracy.result()))
 
     model.save_weights(filepath=config.save_model_dir, save_format='tf')
-
-logdir = os.path.join("log", datetime.now().strftime("%Y%m%d-%H%M%S"))
-tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir,write_images=True)
-    
-model.compile(optimizer='Adadelta',
-              loss='binary_crossentropy',
-              metrics=['accuracy']) ##compil
-
-history = model.fit( train_dataset,test_dataset,
-    batch_size=config.BATCH_SIZE,
-    verbose=0, # Suppress chatty output; use Tensorboard instead
-    epochs=config.EPOCHS,
-    validation_split=0.1,
-    callbacks=[tensorboard_callback],)
-
-
-
-print(history.history.keys())
-# summarize history for accuracy
-plt.plot(history.history['accuracy'])
-plt.plot(history.history['val_accuracy'])
-plt.title('model accuracy')
-plt.ylabel('accuracy')
-plt.xlabel('epoch')
-plt.legend(['train', 'test'], loc='upper left')
-plt.savefig('Curva_aprendizaje_acc.png')
-#plt.show()
-# summarize history for loss
-plt.cla() #limpiar axis
-plt.cla()#limpoar imagen
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('model loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['train', 'test'], loc='upper left')
-plt.savefig('Curva_aprendizaje_loss.png')
